@@ -42,7 +42,3 @@ def process_single_file(input_file, output_folder):
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
 
-# # Example usage
-# input_file = "path/to/your/file.csv"  # Replace with the actual file path
-# output_folder = "path/to/output/folder"  # Replace with the output folder path
-# process_single_file(input_file, output_folder)

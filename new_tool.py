@@ -12,7 +12,8 @@ from database_training.merger_for_pckl import update_pkl_with_csv
 import pandas as pd
 from database_training.update_db_manually import update_pickle
 from email_creation.create_emails import email_creator_app
-
+from database_training.database_process_single_file import process_single_file
+from automatic_email_format import scrapper_run
 
 '''
 ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -28,50 +29,84 @@ def dashboard():
 ----------------------------------------------------------------------------------------------------------------------------------------------------
 '''
 
-base_path = r'E:/EmailTool-V2/Barzaan/email_creator_app/files/'
 
+import os
+
+# Get the full path of the script
+script_path = os.path.abspath('appy.py')
+
+# Get the directory containing the script
+user_path = os.path.dirname(script_path)
+
+print("Base directory:", user_path)
+
+
+base_path = user_path+"/files/"
+
+
+print("Base directory:", base_path)
 
 Source_file_path = base_path+'database_source_files'
 Output_files_path = base_path+'database_output_files'
-db_pickle_file_path = base_path+'main_database//'+'email_patterns.pkl'
+new_db_pickle_file_path = base_path+'main_database//'+'new_database.pkl'
+old_db_pickle_file_path = base_path+'main_database//'+'old_database.pkl'
 email_created_path = base_path+'created_emails'
+missing_data = base_path+'missing_emails'
 verified_path = base_path+'verified_emails'
+
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
+    print("Received request...")
+    log_message = "Tool"
+
     if 'file' not in request.files:
+        print("Error: No file in request")
         return jsonify({"error": "No file part"}), 400
 
-    # Check if a folder is uploaded
-    if 'folder' in request.files:
-        
-        files = request.files.getlist('folder')  # Get all files in the folder
-        filenames = [file.filename for file in files if file.filename != '']
-        first_file_path = files[0].filename
-        folder_name = first_file_path.split('/')[0]  
-        print (folder_name)
-        process_files_and_save_output(folder_name, Output_files_path)
-
-        process_files_and_save_output(folder_name, Output_files_path)
-        update_pkl_with_csv(Output_files_path, db_pickle_file_path)
-
-
     file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No file selected"}), 400
 
     if file:
+        print("Processing single file...")
+
+        # Ensure UPLOAD_FOLDER exists
+        if not os.path.exists(app.config['UPLOAD_FOLDER']):
+            os.makedirs(app.config['UPLOAD_FOLDER'])
+
+        # Save the file
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
         file.save(file_path)
 
+        print(f"File saved at: {file_path}")
+
         try:
-            data = pd.read_excel(file_path) if file.filename.endswith('.xlsx') else pd.read_csv(file_path)
-            print ("just one file")
-            print (data.head())
-            rows, columns = data.shape
-            log_message = f"File processed successfully! Rows: {rows}, Columns: {columns}"
+            process_single_file(file_path, Output_files_path)
+            update_pkl_with_csv(Output_files_path, db_pickle_file_path)
+            log_message = "File processed successfully!"
         except Exception as e:
             log_message = f"Error processing file: {str(e)}"
+
+        
+
+    
+    if 'folder' in request.files:
+
+        print ("folder is selected")
+        
+        files = request.files.getlist('folder')  # Get all files in the folder
+        filenames = [file.filename for file in files if file.filename != '']
+        for i in filenames:
+            print ("filenames ",i)
+            try:
+                if i.endswith('.csv') or i.endswith('.xlsx'):
+                    file_path = f"{base_path}//{i}"
+
+                    process_single_file(file_path, Output_files_path)
+
+            except Exception as e:
+                log_message = f"Error processing file: {str(e)}"
+        update_pkl_with_csv(Output_files_path, db_pickle_file_path)
+        log_message = "File processed successfully!"
 
         return jsonify({"log": log_message})
 
@@ -84,8 +119,7 @@ def update_file():
         return jsonify({"error": "No file part"}), 400
 
     file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No file selected"}), 400
+
 
     if file:
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
@@ -96,9 +130,32 @@ def update_file():
 
             updated_dict = update_pickle(db_pickle_file_path, file_path)
 
-            log_message = f"File processed successfully! Rows:, Columns:"
+            log_message = "File processed successfully! Rows:, Columns:"
         except Exception as e:
             log_message = f"Error processing file: {str(e)}"
+        return jsonify({"log": log_message})
+
+
+    if 'folder' in request.files:
+
+        print ("folder is selected")
+        
+        files = request.files.getlist('folder')  # Get all files in the folder
+        filenames = [file.filename for file in files if file.filename != '']
+        for i in filenames:
+            print ("filenames ",i)
+            try:
+                if i.endswith('.csv') or i.endswith('.xlsx'):
+                    file_path = f"{base_path}//{i}"
+
+                    updated_dict = update_pickle(db_pickle_file_path, file_path)
+
+                    log_message = "File processed successfully! Rows:, Columns:"
+                    log_message = "File processed successfully!"
+            except Exception as e:
+                log_message = f"Error processing file: {str(e)}"
+        print("log", log_message)
+    
 
         return jsonify({"log": log_message})
 
@@ -122,30 +179,57 @@ def create_email():
         return jsonify({"error": "No file part"}), 400
 
     if 'folder' in request.files:
+
+        print ("folder is selected")
         
         files = request.files.getlist('folder')  # Get all files in the folder
         filenames = [file.filename for file in files if file.filename != '']
+        combined_email_data = pd.DataFrame()
         for i in filenames:
             print ("filenames ",i)
 
             try:
                 if i.endswith('.csv') or i.endswith('.xlsx'):
-                    df = email_creator_app(i,email_patterns)
+                    dir_file = f"{base_path}/{i}"
+                    print (f"file names {dir_file}")
+                    df = email_creator_app(dir_file,email_patterns)
+
+                    missing = df[df["Email"].isna() | (df["Email"].str.strip() == "")]
+
+                    email_data = df[df["Email"].notna() & (df["Email"].str.strip() != "")]
+
+                    combined_email_data = pd.concat([combined_email_data, email_data], ignore_index=True)
 
                                         # Get file name without extension
                     file_name_no_ext = os.path.splitext(os.path.basename(i))[0]
 
                     filename_csv = f"{email_created_path}//{file_name_no_ext}_output.csv"
 
-                    df.to_csv(filename_csv)
-                    print (df.head(4))
+                    email_data.to_csv(filename_csv)
+                    missing_file_name =   f"{missing_data}//{file_name_no_ext}_missing.csv"
+                    missing.to_csv(missing_file_name)
+
+                    print (df.head(1))
+                    rows, columns = df.shape
+                    log_message = f"File processed successfully! Rows: {rows}, Columns: {columns}"
+
+
+                   
             except Exception as e:
              print(f"Error processing {i}: {str(e)}")
+
+                # Save the final combined DataFrames after the loop
+        final_email_file = f"{email_created_path}/combined_email_output.csv"
+
+        combined_email_data.to_csv(final_email_file, index=False)
+
+
     file = request.files['file']
     if file.filename == '':
         return jsonify({"error": "No file selected"}), 400
 
     if file:
+        print ("file is selected")
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
         file.save(file_path)
 
@@ -153,14 +237,21 @@ def create_email():
         try:
 
             df = email_creator_app(file_path,email_patterns)
-                                            # Get file name without extension
+            
+            missing = df[df["Email"].isna() | (df["Email"].str.strip() == "")]
+
+            email_data = df[df["Email"].notna() & (df["Email"].str.strip() != "")]
+
+                                # Get file name without extension
             file_name_no_ext = os.path.splitext(os.path.basename(file_path))[0]
 
             filename_csv = f"{email_created_path}//{file_name_no_ext}_output.csv"
-            
-            df.to_csv(filename_csv)
 
-            print (df.head(4))
+            email_data.to_csv(filename_csv)
+            missing_file_name =   f"{missing_data}//{file_name_no_ext}_missing.csv"
+            missing.to_csv(missing_file_name)
+
+            print (df.head(1))
             rows, columns = df.shape
             log_message = f"File processed successfully! Rows: {rows}, Columns: {columns}"
         except Exception as e:
@@ -217,15 +308,13 @@ def verify_email():
 --------------------------------------------------------automatic email formats------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------------------------------------------------------
 '''
+
+
+import time
+
+
 @app.route('/automatic-email', methods=['POST'])
 def automatic_email():
-
-    # Load the pickle file
-    with open(db_pickle_file_path, 'rb') as f:
-        email_patterns = pickle.load(f)
-
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part"}), 400
 
 
     file = request.files['file']
@@ -235,18 +324,58 @@ def automatic_email():
     if file:
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
         file.save(file_path)
+        print (file_path)
+        scrapper_run.app_run(file_path,db_pickle_file_path)
 
-        # Process the file
+
+        #     log_message = f"File processed successfully! Rows: {file_path}"
+        # except Exception as e:
+        #     log_message = f"Error processing file: {str(e)}"
+
+        return jsonify({"log": "log_message"})
+
+
+
+
+
+
+
+'''
+--------------------------------------------------------Split File------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------
+'''
+
+@app.route('/split-file', methods=['POST'])
+def split_file():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No file selected"}), 400
+
+    if file:
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+        file.save(file_path)
+
+        # Read the file and print first 5 rows
         try:
-                                            # Get file name without extension
-            api_key = '748ad80421514463bb9099b85004b0dd'
-            url = 'https://api.zerobounce.net/v2/validate'
-            print (file_path)
-            log_message = f"File processed successfully! Rows: {file_path}"
+            if file.filename.endswith('.xlsx'):
+                df = pd.read_excel(file_path)
+            else:
+                df = pd.read_csv(file_path)
+
+            print(df.head())  # Print first 5 rows
+
+            log_message = f"File uploaded successfully! Showing first 5 rows:\n{df.head().to_string()}"
         except Exception as e:
             log_message = f"Error processing file: {str(e)}"
 
         return jsonify({"log": log_message})
+
+
+
+
 
 @app.route('/clear_logs', methods=['POST'])
 def clear_logs():
@@ -254,4 +383,4 @@ def clear_logs():
     return jsonify({"log": "Logs cleared!"})
 
 if __name__ == '__main__':
-    app.run(port=3000, debug=True)
+    app.run(host = 'old-tool', port=4000, debug=True)

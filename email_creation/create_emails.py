@@ -1,61 +1,103 @@
 import pandas as pd
 import pickle
 from email_creation.reader_email import reader
-# Function to create email based on the pattern
-def create_emails(row, email_patterns):
-    company_name = row['Company']
-    first_name = row['First Name']
-    last_name = row['Last Name']
+
+
+
+
+def create_emails2(row, email_patterns):
+    company_name = row['Company'].strip()  # Remove leading/trailing spaces
+    first_name = row['First Name'].strip()
+    last_name = row['Last Name'].strip()
+    #print (company_name,first_name,last_name)  
+
 
     # Get the email format for the company from the dictionary
-    email_pattern = None
-    for company, formats in email_patterns.items():
-        if company.lower() == company_name.lower():
-      
-            email_pattern = formats[0].split('@')[0]  # Extract the email pattern before '@'
-            domain = formats[0].split('@')[1]
-            
-            break
+    formats = email_patterns.get(company_name.lower())  # Direct lookup instead of looping
+   
+    if not formats:
+        return None  # No matching email pattern
 
-    if not email_pattern:
-        return None  # Return None if no matching email pattern is found
+    try:
+
+        email_pattern, domain = formats.split('@', maxsplit=1)  # Extract format and domain
+       # print (f"-----------------------{email_pattern, domain}----------")
+    except Exception as e:
+           print(f"Error processing file: {str(e)}")
+           return None
 
     # Define patterns for generating emails
     patterns = {
-        "FirstName": first_name,
-        "LastName": last_name,
-        "FirstName.LastName": f"{first_name}.{last_name}",
-        "FirstName_LastName": f"{first_name}_{last_name}",
-        "LastName.FirstName": f"{last_name}.{first_name}",
-        "LastName_FirstName": f"{last_name}_{first_name}",
-        "LastName.FirstName1": f"{last_name}.{first_name[0]}",
-        "FirstNameLastName": f"{first_name}{last_name}",
-        "LastNameFirstName": f"{last_name}{first_name}",
-        "FirstName-LastName": f"{first_name}-{last_name}",
-        "LastName-FirstName": f"{last_name}-{first_name}",
-        "FirstName1LastName": f"{first_name[0]}{last_name}",
-        "FirstNameLastName1": f"{first_name}{last_name[0]}",
-        "LastName1FirstName": f"{last_name[0]}{first_name}",
-        "LastNameFirstName1": f"{last_name}{first_name[0]}",
-        "FirstName1.LastName": f"{first_name[0]}.{last_name}",
-        "LastName1.FirstName": f"{last_name[0]}.{first_name}",
-        "FirstName.LastName1": f"{first_name}.{last_name[0]}",
-        "FirstName1_LastName": f"{first_name[0]}_{last_name}",
-        "LastName1_FirstName": f"{last_name[0]}_{first_name}",
-        "FirstName_LastName1": f"{first_name}_{last_name[0]}"
+    "FirstName": first_name,
+    "LastName": last_name,
+
+    "FirstInitial": f"{first_name[0]}", 
+    "LastInitial": f"{last_name[0]}", 
+
+    "FirstName.LastName": f"{first_name}.{last_name}",
+    "FirstName_LastName": f"{first_name}_{last_name}",
+    "FirstName-LastName": f"{first_name}-{last_name}",
+    "FirstNameLastName": f"{first_name}{last_name}",
+
+    "LastName.FirstName": f"{last_name}.{first_name}",
+    "LastName_FirstName": f"{last_name}_{first_name}",
+    "LastName-FirstName": f"{last_name}-{first_name}",
+    "LastNameFirstName": f"{last_name}{first_name}",
+
+    "FirstInitialLastName": f"{first_name[0]}{last_name}",
+    "FirstName1.LastName": f"{first_name[0]}.{last_name}",
+    "FirstInitial_LastName": f"{first_name[0]}_{last_name}",
+    "FirstInitial-LastName": f"{first_name[0]}-{last_name}",
+
+    "FirstInitialLastInitial": f"{first_name[0]}{last_name[0]}",
+    "FirstInitial.LastInitial": f"{first_name[0]}.{last_name[0]}",
+    "FirstInitial_LastInitial": f"{first_name[0]}_{last_name[0]}",
+    "FirstInitial-LastInitial": f"{first_name[0]}-{last_name[0]}",
+
+    "FirstName.LastName1": f"{first_name}.{last_name[0]}",
+    "FirstName_LastInitial": f"{first_name}_{last_name[0]}",
+    "FirstName-LastInitial": f"{first_name}-{last_name[0]}",
+    "FirstNameLastInitial": f"{first_name}{last_name[0]}",
+
+    "LastName.FirstInitial": f"{last_name}.{first_name[0]}",
+    "LastName_FirstInitial": f"{last_name}_{first_name[0]}",
+    "LastName-FirstInitial": f"{last_name}-{first_name[0]}",
+    "LastNameFirstInitial": f"{last_name}{first_name[0]}",
+
+    "FirstInitialLastNameLastInitial": f"{first_name[0]}{last_name}{last_name[0]}",  # Fixed from FirstInitialLastName1
+    "FirstName1LastName": f"{first_name[0]}{last_name}",  # Fixed from FirstName1LastName
+    "FirstNameLastName1": f"{first_name}{last_name[0]}",  # Fixed from FirstNameLastName1
+    "LastInitialFirstName": f"{last_name[0]}{first_name}",  # Fixed from LastName1FirstName  FirstName1LastName
+    "LastNameFirstName1": f"{last_name}{first_name[0]}",  # Fixed from LastNameFirstName1
+
+    "LastInitial.FirstInitial": f"{last_name[0]}.{first_name[0]}",
+    "LastInitial-FirstInitial": f"{last_name[0]}-{first_name[0]}",
+    "LastInitial_FirstInitial": f"{last_name[0]}_{first_name[0]}",
+    "LastInitialFirstInitial": f"{last_name[0]}{first_name[0]}",
+
+    "LastInitial.FirstName": f"{last_name[0]}.{first_name}",
+    "LastInitial-FirstName": f"{last_name[0]}-{first_name}",
+    "LastInitial_FirstName": f"{last_name[0]}_{first_name}",
+    "LastInitialFirstName": f"{last_name[0]}{first_name}",
     }
 
-    # Generate the email based on the pattern
-    email_local_part = patterns.get(email_pattern, "")
-    if email_local_part:
-        email_domain = row['Email'].split('@')[-1]  # Extract domain from the email column
-        return f"{email_local_part}@{domain}"
-    return None
+    # Generate email if pattern exists
+    email_local_part = patterns.get(email_pattern)
+    #print (f'......................{email_local_part}......................')
+    return f"{email_local_part}@{domain}" if email_local_part else None
+
+
 
 
 def email_creator_app(file,email_patterns):
-    processed_data= reader(file)
+    processed_data = reader(file)  # Read data from file
     processed_data['Email'] = ""
-    # Apply the email creation function to the dataframe
-    processed_data['Email'] = processed_data.apply(create_emails, axis=1, email_patterns=email_patterns)
+    
+    # Apply email creation function
+   
+    processed_data['Email'] = processed_data.apply(lambda row: create_emails2(row, email_patterns), axis=1)
+   
+    print (processed_data.head(1))
+
+    print('Data processing complete.')
     return processed_data

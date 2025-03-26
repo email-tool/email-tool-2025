@@ -1,0 +1,4 @@
+Flask
+googlesearch-python
+openpyxl
+pandas

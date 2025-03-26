@@ -1,9 +1,6 @@
 import pandas as pd
 import os
-
-
-import pandas as pd
-import os,re
+import re
 
 def process_file(file_path):
     # Determine file extension
@@ -20,6 +17,9 @@ def process_file(file_path):
     else:
         raise ValueError("Unsupported file format. Only CSV and Excel files are allowed.")
     
+    # Strip spaces from column names
+    data.columns = data.columns.str.strip()
+
     # Define the required columns
     required_columns = ["Company", "Contact Name"]
     all_columns = ["Srl No", "Company", "Contact Name", "First Name", "Last Name",
@@ -35,29 +35,29 @@ def process_file(file_path):
         if "Contact Name" in data.columns:
             # Split the "Contact Name" into "First Name" and "Last Name"
             split_names = data["Contact Name"].str.split(" ", n=1, expand=True)
-            data["First Name"] = split_names[0].apply(lambda x: re.sub(r'^[^a-zA-Z]+', '', x))
-            data["Last Name"] = data['Contact Name'].apply(lambda x: x.split()[-1])
+            data["First Name"] = split_names[0].apply(lambda x: re.sub(r'^[^a-zA-Z]+', '', str(x).strip()))
+            data["Last Name"] = data["Contact Name"].apply(lambda x: str(x).split()[-1].strip() if isinstance(x, str) else "NA")
     
     # Add any missing non-mandatory columns and fill with "NA"
     for col in all_columns:
         if col not in data.columns:
             data[col] = "NA"
     
-    # # Preprocess: Convert all text columns to lowercase
-    # for col in data.select_dtypes(include=["object"]).columns:
-    #     data[col] = data[col].str.lower()
+    # Ensure all column values are stripped of leading/trailing spaces
+    for col in data.columns:
+        if data[col].dtype == "object":  # Only process string columns
+            data[col] = data[col].astype(str).str.strip()
     
     return data
 
-
 def reader(file_path):
-    # Example usage
     try:
-    
         processed_data = process_file(file_path)
         processed_data = processed_data[["Srl No", "Company", "Contact Name", "First Name", "Last Name",
-                   "Designation", "Location", "Industry", "Mailer_Status"]]
+                                         "Designation", "Location", "Industry", "Mailer_Status"]]
         processed_data.dropna(subset=["Company", "Contact Name", "First Name", "Last Name"], inplace=True)
+        
+
         print("Processed DataFrame:")
         return processed_data
     except ValueError as e:
