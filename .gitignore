@@ -1,0 +1,14 @@
+# Ignore CSV files
+*.csv
+
+# Ignore Pickle files
+*.pkl
+
+# Ignore Excel files
+*.xls
+*.xlsx
+*.xlsm
+*.xlsb
+files/
+old_database_files/
+uploads/
