@@ -56,7 +56,6 @@ def identify_email_pattern(row):
 def db_email_extracter(file_path):
     try:
         processed_data = reader(file_path)
-        print("Reader did the job:")
 
         processed_data['email pattern'] = processed_data.apply(identify_email_pattern, axis=1) + '@' + processed_data.apply(get_domain, axis=1)
 
@@ -79,10 +78,8 @@ def get_email_formats(file_path):
     excel_data = pd.ExcelFile(file_path)
     sheets = excel_data.sheet_names[:5]  # Get the first 5 sheets
     data = pd.concat([excel_data.parse(sheet) for sheet in sheets], ignore_index=True)
-    print("DB is extracting")
 
     processed_data = db_email_extracter(file_path)  # Pass DataFrame, not file_path
-    print("DB is extracted")
 
     end_time = time.time()  # End time tracking
     time_taken = end_time - start_time
@@ -112,7 +109,7 @@ def process_single_file(input_file, output_folder):
         # Check if the file is a supported format (CSV or Excel)
         if file_extension.lower() in ['.csv', '.xls', '.xlsx']:
             try:
-                print ("I am in single process file")
+        
                 processed_data = get_email_formats(input_file)
                 print ("get_email_formats")
                 # Get the number of rows in processed data

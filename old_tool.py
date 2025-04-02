@@ -125,6 +125,8 @@ def update_file():
             # data = pd.read_excel(file_path) if file.filename.endswith('.xlsx') else pd.read_csv(file_path)
 
             updated_dict = update_pickle(old_db_pickle_file_path, file_path)
+            updated_dict = update_pickle(new_db_pickle_file_path, file_path)
+
 
             log_message = "File processed successfully! Rows:, Columns:"
         except Exception as e:
@@ -145,6 +147,7 @@ def update_file():
                     file_path = f"{base_path}//{i}"
 
                     updated_dict = update_pickle(old_db_pickle_file_path, file_path)
+                    updated_dict = update_pickle(new_db_pickle_file_path, file_path)
 
                     log_message = "File processed successfully! Rows:, Columns:"
                     log_message = "File processed successfully!"

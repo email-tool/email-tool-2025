@@ -20,9 +20,8 @@ def process_single_file(input_file, output_folder,output_pkl_path):
         # Check if the file is a supported format (CSV or Excel)
         if file_extension.lower() in ['.csv', '.xls', '.xlsx']:
             try:
-                print ("I am in single process file")
+        
                 processed_data = get_email_formats(input_file)
-                print ("get_email_formats")
                 # Get the number of rows in processed data
                 num_rows = len(processed_data)
                 print(f"Number of rows processed: {num_rows}")

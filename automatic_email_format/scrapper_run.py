@@ -29,7 +29,7 @@ def app_run(csv_file,db_pickle_file_path,new_pickle_file_path, scrapper_output):
         # Determine the starting index from the checkpoint file
         if os.path.exists(checkpoint_file):
 
-            print (checkpoint_file)
+            print ("existing file:", checkpoint_file)
 
             with open(checkpoint_file, "r") as f:
                 last_index, last_file = f.readline().strip().split()
@@ -56,6 +56,6 @@ def app_run(csv_file,db_pickle_file_path,new_pickle_file_path, scrapper_output):
             print (f"Batch:: {start_index}_{end_index}")
 
             # Print batch details
-            namefile = f"{scrapper_output}/Batch{start_index}_{end_index}__2AprSCRAPPER_"
-            df_raw= scrapper_manager(queries[start_index:end_index],namefile, last_index, output_txt_file,db_pickle_file_path,new_pickle_file_path) 
+            namefile = f"{scrapper_output}/Batch{start_index}_{end_index}__3__AprSCRAPPER_"
+            df_raw= scrapper_manager(queries[start_index:end_index],namefile, last_index, output_txt_file,db_pickle_file_path,new_pickle_file_path,checkpoint_file) 
             time.sleep(35)

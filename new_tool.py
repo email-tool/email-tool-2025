@@ -125,6 +125,7 @@ def update_file():
             # data = pd.read_excel(file_path) if file.filename.endswith('.xlsx') else pd.read_csv(file_path)
 
             updated_dict = update_pickle(new_db_pickle_file_path, file_path)
+            updated_dict = update_pickle(old_db_pickle_file_path, file_path)
 
             log_message = "File processed successfully! Rows:, Columns:"
         except Exception as e:
@@ -145,6 +146,7 @@ def update_file():
                     file_path = f"{base_path}//{i}"
 
                     updated_dict = update_pickle(new_db_pickle_file_path, file_path)
+                    updated_dict = update_pickle(old_db_pickle_file_path, file_path)
 
                     log_message = "File processed successfully! Rows:, Columns:"
                     log_message = "File processed successfully!"
@@ -199,13 +201,11 @@ def create_email():
                                         # Get file name without extension
                     file_name_no_ext = os.path.splitext(os.path.basename(i))[0]
 
-                    filename_csv = f"{email_created_path}//{file_name_no_ext}_output.csv"
+                    filename_csv = f"{email_created_path}//{file_name_no_ext}_new_tool_output.csv"
 
                     email_data.to_csv(filename_csv)
-                    missing_file_name =   f"{missing_data}//{file_name_no_ext}_missing.csv"
+                    missing_file_name =   f"{missing_data}//{file_name_no_ext}_new_tool_missing.csv"
                     missing.to_csv(missing_file_name)
-
-                    print (df.head(1))
                     rows, columns = df.shape
                     log_message = f"File processed successfully! Rows: {rows}, Columns: {columns}"
 
@@ -241,13 +241,11 @@ def create_email():
                                 # Get file name without extension
             file_name_no_ext = os.path.splitext(os.path.basename(file_path))[0]
 
-            filename_csv = f"{email_created_path}//{file_name_no_ext}_output.csv"
+            filename_csv = f"{email_created_path}//{file_name_no_ext}_new_tool_output.csv"
 
             email_data.to_csv(filename_csv)
-            missing_file_name =   f"{missing_data}//{file_name_no_ext}_missing.csv"
+            missing_file_name =   f"{missing_data}//{file_name_no_ext}__new_tool_missing.csv"
             missing.to_csv(missing_file_name)
-
-            print (df.head(1))
             rows, columns = df.shape
             log_message = f"File processed successfully! Rows: {rows}, Columns: {columns}"
         except Exception as e:

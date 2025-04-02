@@ -179,7 +179,6 @@ def createCSV(data,name):
 
 def process_csv(filename):
 
-    print ("process csv")
     data = pd.read_csv(filename)
     # Convert all column names to lowercase
     data.columns = data.columns.str.lower()
@@ -192,7 +191,6 @@ def process_csv(filename):
         company = row["company"] # Normalize company name to lowercase
         email_format = row["email pattern"]
         new_dict[company] = email_format
-    print ("file process over")
     return new_dict
 
 # Function to update the pickle file
@@ -210,12 +208,10 @@ def update_pickle(pickle_file, new_csv_file):
     # Save the updated dictionary back to the pickle file
     with open(pickle_file, "wb") as file:
         pickle.dump(email_dict, file)
-
-    print(f"****************Pickle file updated: {pickle_file}")
     return email_dict
 
 
-def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_file_path, new_pickle_file_path):
+def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_file_path, new_pickle_file_path,checkpoint_file):
 
     dfss = []
 
@@ -223,7 +219,7 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
     search_engines = [fetch_google_results, fetch_yahoo_results]  # Alternating search engines\
     h = ['Google', 'yahoo']
     engine_pt = 0
-    batch_size = 96
+    batch_size =89
     num_batches = math.ceil(len(queries) / batch_size)
     all_results = []
 
@@ -256,7 +252,7 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
 
             print(f"last_index: {last_index}", end="\r")  
 
-            checkpoint_file = "checkpoint.txt"
+            
             with open(checkpoint_file, "w") as f:
                   f.write(f"{last_index} {output_txt_file}\n")
 
@@ -333,18 +329,37 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
 
             update_pickle(db_pickle_file_path, f"{name_file}_{batch_idx}_{str(datetime.now())[:10]}.csv")
             update_pickle(new_pickle_file_path, f"{name_file}_{batch_idx}_{str(datetime.now())[:10]}.csv")
-            print (f"{name_file}_{batch_idx}_{str(datetime.now())[:10]}.csv")
+            print (f"saved file : {name_file}_{batch_idx}_{str(datetime.now())[:10]}.csv")
             # update_pickle(pickle_file, new_csv_file)
 
             dfss.append(df)  # Append to list
+            d = pd.concat(dfss, ignore_index=True)
+            unique_companies = d["company"].unique()  # Extract unique company names
+            total_unique = unique_companies.shape[0] 
+            print("Total results:", total_unique)  # Print the shape of the unique companies array
+                        # Save to a text file
+            with open("total_count.txt", "w") as f:
+                f.write(f"Total count of unique companies: {total_unique}\n")
+
+
+
         except Exception as e:
             print(f"Error: {e}")  # Prints the error message
             print ("")
             continue
 
-        time.sleep(40)
+        time.sleep(60)
     try:
         df_combined = pd.concat(dfss, ignore_index=True)
+
+
+        unique_companies = df_combined["company"].unique()  # Extract unique company names
+        total_unique = unique_companies.shape[0] 
+        print("Total results:", unique_companies.shape)  # Print the shape of the unique companies array
+        # Save to a text file
+        with open("total_count.txt", "w") as f:
+             f.write(f"Total count of unique companies: {total_unique}\n")
+
     except Exception as e:
         print(f"Error: {e}")  # Prints the error message
         print ("")
