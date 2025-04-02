@@ -2,8 +2,8 @@ import os
 import pandas as pd
 from datetime import datetime
 from database_training.email_format_extracter import get_email_formats
-
-def process_single_file(input_file, output_folder):
+from database_training.merger_for_pckl import update_pkl_with_csv
+def process_single_file(input_file, output_folder,output_pkl_path):
     try:
         # Get the current date for the output filename
         current_date = datetime.now().strftime('%Y-%m-%d')
@@ -33,6 +33,7 @@ def process_single_file(input_file, output_folder):
                 processed_data.to_csv(output_file_path, index=False)
 
                 print(f"Processed data saved to: {output_file_path}")
+                update_pkl_with_csv(output_file_path, output_pkl_path)
 
             except Exception as e:
                 print(f"Error processing file {input_file}: {e}")

@@ -8,7 +8,7 @@ app.secret_key = 'your_secret_key'
 app.config['UPLOAD_FOLDER'] = 'uploads'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 from database_training.database_process_mutifile import process_files_and_save_output
-from database_training.merger_for_pckl import update_pkl_with_csv
+
 import pandas as pd
 from database_training.update_db_manually import update_pickle
 from email_creation.create_emails import email_creator_app
@@ -37,20 +37,16 @@ script_path = os.path.abspath('appy.py')
 
 # Get the directory containing the script
 user_path = os.path.dirname(script_path)
-
 print("Base directory:", user_path)
-
-
 base_path = user_path+"/files/"
-
-
 print("Base directory:", base_path)
-
 Source_file_path = base_path+'database_source_files'
 Output_files_path = base_path+'database_output_files'
-new_db_pickle_file_path = base_path+'main_database//'+'new_database.pkl'
-old_db_pickle_file_path = base_path+'main_database//'+'old_database.pkl'
+new_db_pickle_file_path = base_path+'main_database//'+'new_db.pkl'
+old_db_pickle_file_path = base_path+'main_database//'+'old_db.pkl'
 email_created_path = base_path+'created_emails'
+
+scrapper_output = base_path + 'automatic_emails_format_created'
 missing_data = base_path+'missing_emails'
 verified_path = base_path+'verified_emails'
 
@@ -80,8 +76,8 @@ def upload_file():
         print(f"File saved at: {file_path}")
 
         try:
-            process_single_file(file_path, Output_files_path)
-            update_pkl_with_csv(Output_files_path, db_pickle_file_path)
+            process_single_file(file_path, Output_files_path,old_db_pickle_file_path)
+            
             log_message = "File processed successfully!"
         except Exception as e:
             log_message = f"Error processing file: {str(e)}"
@@ -101,11 +97,11 @@ def upload_file():
                 if i.endswith('.csv') or i.endswith('.xlsx'):
                     file_path = f"{base_path}//{i}"
 
-                    process_single_file(file_path, Output_files_path)
+                    process_single_file(file_path, Output_files_path,old_db_pickle_file_path)
 
             except Exception as e:
                 log_message = f"Error processing file: {str(e)}"
-        update_pkl_with_csv(Output_files_path, db_pickle_file_path)
+      
         log_message = "File processed successfully!"
 
         return jsonify({"log": log_message})
@@ -128,7 +124,7 @@ def update_file():
         try:
             # data = pd.read_excel(file_path) if file.filename.endswith('.xlsx') else pd.read_csv(file_path)
 
-            updated_dict = update_pickle(db_pickle_file_path, file_path)
+            updated_dict = update_pickle(new_db_pickle_file_path, file_path)
 
             log_message = "File processed successfully! Rows:, Columns:"
         except Exception as e:
@@ -148,7 +144,7 @@ def update_file():
                 if i.endswith('.csv') or i.endswith('.xlsx'):
                     file_path = f"{base_path}//{i}"
 
-                    updated_dict = update_pickle(db_pickle_file_path, file_path)
+                    updated_dict = update_pickle(new_db_pickle_file_path, file_path)
 
                     log_message = "File processed successfully! Rows:, Columns:"
                     log_message = "File processed successfully!"
@@ -172,7 +168,7 @@ def update_file():
 def create_email():
 
     # Load the pickle file
-    with open(db_pickle_file_path, 'rb') as f:
+    with open(new_db_pickle_file_path, 'rb') as f:
         email_patterns = pickle.load(f)
 
     if 'file' not in request.files:
@@ -269,7 +265,7 @@ def create_email():
 def verify_email():
 
     # Load the pickle file
-    with open(db_pickle_file_path, 'rb') as f:
+    with open(old_db_pickle_file_path, 'rb') as f:
         email_patterns = pickle.load(f)
 
     if 'file' not in request.files:
@@ -325,7 +321,8 @@ def automatic_email():
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
         file.save(file_path)
         print (file_path)
-        scrapper_run.app_run(file_path,db_pickle_file_path)
+        scrapper_run.app_run(file_path,old_db_pickle_file_path,new_db_pickle_file_path,scrapper_output)
+
 
 
         #     log_message = f"File processed successfully! Rows: {file_path}"
@@ -383,4 +380,4 @@ def clear_logs():
     return jsonify({"log": "Logs cleared!"})
 
 if __name__ == '__main__':
-    app.run(host = 'old-tool', port=4000, debug=True)
+    app.run(host ='new-tool', port=3000, debug=True)

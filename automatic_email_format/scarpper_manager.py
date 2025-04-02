@@ -4,7 +4,7 @@ import time, math, random
 from datetime import datetime, timedelta
 
 import pandas as pd
-import re, os,pickle
+import re, os,pickle, requests
 from urllib.parse import urlparse
 
 from automatic_email_format.get_email_flags import get_flags
@@ -177,40 +177,36 @@ def createCSV(data,name):
         df.to_csv(name)
     return df
 
-def process_csv(data):
+def process_csv(filename):
 
+    print ("process csv")
+    data = pd.read_csv(filename)
     # Convert all column names to lowercase
     data.columns = data.columns.str.lower()
-
-    # Drop rows where "company" or "email format" are null
     data.dropna(subset=["company", 	"email pattern"], inplace=True)
-
+    # Convert the "company" column values to lowercase
+    data["company"] = data["company"].str.lower()   
     # Convert to dictionary
     new_dict = {}
     for _, row in data.iterrows():
         company = row["company"] # Normalize company name to lowercase
         email_format = row["email pattern"]
-        new_dict[company] = [email_format]
-
+        new_dict[company] = email_format
+    print ("file process over")
     return new_dict
 
 # Function to update the pickle file
 def update_pickle(pickle_file, new_csv_file):
-    print ("update_pickle", pickle_file)
     # Load the existing pickle file
     if os.path.exists(pickle_file):
         with open(pickle_file, "rb") as file:
             email_dict = pickle.load(file)
-            print ("Shape of old data:", len(email_dict))
     else:
         email_dict = {}
 
     # Process the new CSV file
     new_data = process_csv(new_csv_file)
-
-    # Update the existing dictionary with new data (replace if company already exists)
     email_dict.update(new_data)
-    print ("Shape of new data:", len(email_dict))
     # Save the updated dictionary back to the pickle file
     with open(pickle_file, "wb") as file:
         pickle.dump(email_dict, file)
@@ -219,7 +215,7 @@ def update_pickle(pickle_file, new_csv_file):
     return email_dict
 
 
-def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_file_path):
+def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_file_path, new_pickle_file_path):
 
     dfss = []
 
@@ -227,7 +223,7 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
     search_engines = [fetch_google_results, fetch_yahoo_results]  # Alternating search engines\
     h = ['Google', 'yahoo']
     engine_pt = 0
-    batch_size = 2
+    batch_size = 96
     num_batches = math.ceil(len(queries) / batch_size)
     all_results = []
 
@@ -277,7 +273,7 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
 
                             q = f"email format for {links[0]}"
 
-                            time.sleep(3)
+                            time.sleep(1)
 
 
                             results = search_engines[engine_pt](q, num_results=10)
@@ -330,15 +326,13 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
 
 
         engine_pt = 1- engine_pt  
-        print (all_results)
+     
         print ("sleeping after batch")
         try:
             df= createCSV(all_results,f"{name_file}_{batch_idx}_{str(datetime.now())[:10]}.csv")
 
-            updated_dict = update_pickle(db_pickle_file_path, f"{name_file}_{batch_idx}_{str(datetime.now())[:10]}.csv")
-
-            print (df)
-            print ('createCSV')
+            update_pickle(db_pickle_file_path, f"{name_file}_{batch_idx}_{str(datetime.now())[:10]}.csv")
+            update_pickle(new_pickle_file_path, f"{name_file}_{batch_idx}_{str(datetime.now())[:10]}.csv")
             print (f"{name_file}_{batch_idx}_{str(datetime.now())[:10]}.csv")
             # update_pickle(pickle_file, new_csv_file)
 
@@ -348,7 +342,7 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
             print ("")
             continue
 
-        time.sleep(1)
+        time.sleep(40)
     try:
         df_combined = pd.concat(dfss, ignore_index=True)
     except Exception as e:

@@ -3,11 +3,13 @@
 
 # Ignore Pickle files
 *.pkl
+*.txt
 
 # Ignore Excel files
 *.xls
 *.xlsx
 *.xlsm
+*.zip
 *.xlsb
 files/
 old_database_files/
