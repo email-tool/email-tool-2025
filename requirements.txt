@@ -3,4 +3,5 @@ googlesearch-python
 openpyxl
 pandas
 requests
+flask-socketio
 beautifulsoup4

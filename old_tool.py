@@ -123,10 +123,31 @@ def update_file():
 
         try:
             # data = pd.read_excel(file_path) if file.filename.endswith('.xlsx') else pd.read_csv(file_path)
+            updated_dictd = update_pickle(new_db_pickle_file_path, file_path)
+            from pathlib import Path
+            import csv
 
+            file_paths = Path(new_db_pickle_file_path)
+            folder_path = file_paths.parent
+            #create csv out of dictionary
+            if isinstance(updated_dictd, dict):
+                # Write to CSV with UTF-8 encoding
+                print (folder_path / "new_database.csv")
+                with open(folder_path / "new_database.csv", "w", newline="", encoding="utf-8") as csv_file:
+                    writer = csv.writer(csv_file)
+                    writer.writerow(["Key", "Value"])  # Header
+                    for key, value in updated_dictd.items():
+                        writer.writerow([key, value])
             updated_dict = update_pickle(old_db_pickle_file_path, file_path)
-            updated_dict = update_pickle(new_db_pickle_file_path, file_path)
-
+        
+            if isinstance(updated_dict, dict):
+                # Write to CSV with UTF-8 encoding
+                print (folder_path / "old_database.csv")
+                with open(folder_path / "old_database.csv", "w", newline="", encoding="utf-8") as csv_file:
+                    writer = csv.writer(csv_file)
+                    writer.writerow(["Key", "Value"])  # Header
+                    for key, value in updated_dict.items():
+                        writer.writerow([key, value])
 
             log_message = "File processed successfully! Rows:, Columns:"
         except Exception as e:

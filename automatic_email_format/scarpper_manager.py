@@ -9,6 +9,22 @@ from urllib.parse import urlparse
 
 from automatic_email_format.get_email_flags import get_flags
 
+
+def log_query_result(log_file, query, results, error=None):
+    """Logs each query with its results or errors in a persistent text file."""
+    with open(log_file, "a", encoding="utf-8") as f:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        if error:
+            log_entry = f"{timestamp} | QUERY: {query} | ERROR: {error}\n"
+        else:
+            log_entry = f"{timestamp} | QUERY: {query} | RESULTS: {results}\n"
+
+        f.write(log_entry)
+        f.flush()  # Ensure data is written immediately
+
+
+
 # Function to identify email format
 def get_email_pattern(email):
     if not isinstance(email, str) or "@" not in email:
@@ -166,12 +182,10 @@ def createCSV(data,name):
             records.append({"Company":query, "Snippet": snippet})
 
     df = pd.DataFrame(records)
-
     df = get_email_patterns_only(df, name)
     df = get_flags(df,'email pattern')
 
     df = df[df['match'].isin(['High', 'Medium'])]
-
     if df.shape[0] >0:
     
         df.to_csv(name)
@@ -191,6 +205,7 @@ def process_csv(filename):
         company = row["company"] # Normalize company name to lowercase
         email_format = row["email pattern"]
         new_dict[company] = email_format
+  
     return new_dict
 
 # Function to update the pickle file
@@ -203,23 +218,31 @@ def update_pickle(pickle_file, new_csv_file):
         email_dict = {}
 
     # Process the new CSV file
+    
     new_data = process_csv(new_csv_file)
+
     email_dict.update(new_data)
+
     # Save the updated dictionary back to the pickle file
+
+    email_dict = {key: value[0] if isinstance(value, list) and len(value) == 1 else value for key, value in email_dict.items()}
+    keys_to_remove = [key for key, value in email_dict.items() if value == "Unknown Pattern"]
+    # Remove them from the dictionary
+    for key in keys_to_remove:
+        del email_dict[key]
     with open(pickle_file, "wb") as file:
         pickle.dump(email_dict, file)
-    return email_dict
 
 
-def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_file_path, new_pickle_file_path,checkpoint_file):
+
+def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_file_path, new_pickle_file_path,checkpoint_file, batch_size):
+
+    log_file="query_logs.txt"
 
     dfss = []
-
-    print ("printing lenghth", len(queries))
     search_engines = [fetch_google_results, fetch_yahoo_results]  # Alternating search engines\
     h = ['Google', 'yahoo']
     engine_pt = 0
-    batch_size =89
     num_batches = math.ceil(len(queries) / batch_size)
     all_results = []
 
@@ -273,17 +296,21 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
 
 
                             results = search_engines[engine_pt](q, num_results=10)
+                            log_query_result(log_file, query, results)
                         except Exception as e:
                             print(f" Failed to fetch results for query '{query}': {e}") 
+                            log_query_result(log_file, query, None, error="No results found")
                             yahoo_downtime = datetime.now()
     
                         all_results.append({'query': company_name, 'engine': h[engine_pt], 'results': results})
                     else:
                         try :
+                            log_query_result(log_file, query, results)
                             results = search_engines[1-engine_pt](query, num_results=10)
                         except:
                             yahoo_downtime = datetime.now()
                             print(f" Failed to fetch results for query '{query}': {e}") 
+                            log_query_result(log_file, query, None, error="No results found")
                         all_results.append({'query': company_name, 'engine': h[1-engine_pt], 'results': results})
 
                 if engine_pt == 1:
@@ -300,8 +327,10 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
                             time.sleep(3)
                         
                             results = search_engines[engine_pt](q, num_results=10)
+                            log_query_result(log_file, query, results)
                         except:
                             print(f" Failed to fetch results for query '{query}': {e}") 
+                            log_query_result(log_file, query, None, error="No results found")
                             bing_downtime = datetime.now()
                         if not results:  # If results are empty, append a result with "NA"
                             results.append({'title': 'NA', 'link': 'NA', 'snippet': 'NA'})
@@ -309,8 +338,10 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
                     else:
                         try :
                             results = search_engines[1-engine_pt](query, num_results=10)
+                            log_query_result(log_file, query, results)
                         except:
                             print(f" Failed to fetch results for query '{query}': {e}") 
+                            log_query_result(log_file, query, None, error="No results found")
                             bing_downtime = datetime.now()
                         if not results:  # If results are empty, append a result with "NA"
                             results.append({'title': 'NA', 'link': 'NA', 'snippet': 'NA'})
@@ -325,11 +356,13 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
      
         print ("sleeping after batch")
         try:
+    
             df= createCSV(all_results,f"{name_file}_{batch_idx}_{str(datetime.now())[:10]}.csv")
 
             update_pickle(db_pickle_file_path, f"{name_file}_{batch_idx}_{str(datetime.now())[:10]}.csv")
             update_pickle(new_pickle_file_path, f"{name_file}_{batch_idx}_{str(datetime.now())[:10]}.csv")
-            print (f"saved file : {name_file}_{batch_idx}_{str(datetime.now())[:10]}.csv")
+
+            # print (f"saved file : {name_file}_{batch_idx}_{str(datetime.now())[:10]}.csv")
             # update_pickle(pickle_file, new_csv_file)
 
             dfss.append(df)  # Append to list
@@ -348,14 +381,13 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
             print ("")
             continue
 
-        time.sleep(60)
+        time.sleep(45)
     try:
         df_combined = pd.concat(dfss, ignore_index=True)
 
 
         unique_companies = df_combined["company"].unique()  # Extract unique company names
         total_unique = unique_companies.shape[0] 
-        print("Total results:", unique_companies.shape)  # Print the shape of the unique companies array
         # Save to a text file
         with open("total_count.txt", "w") as f:
              f.write(f"Total count of unique companies: {total_unique}\n")
@@ -364,4 +396,4 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
         print(f"Error: {e}")  # Prints the error message
         print ("")
 
-    return df_combined
+    return unique_companies.shape[0]

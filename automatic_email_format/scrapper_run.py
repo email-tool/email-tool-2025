@@ -57,5 +57,5 @@ def app_run(csv_file,db_pickle_file_path,new_pickle_file_path, scrapper_output):
 
             # Print batch details
             namefile = f"{scrapper_output}/Batch{start_index}_{end_index}__3__AprSCRAPPER_"
-            df_raw= scrapper_manager(queries[start_index:end_index],namefile, last_index, output_txt_file,db_pickle_file_path,new_pickle_file_path,checkpoint_file) 
-            time.sleep(35)
+            # df_raw= scrapper_manager(queries[start_index:end_index],namefile, last_index, output_txt_file,db_pickle_file_path,new_pickle_file_path,checkpoint_file) 
+            time.sleep(1)

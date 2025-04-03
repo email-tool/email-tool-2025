@@ -14,6 +14,8 @@ def create_emails2(row, email_patterns):
 
     # Get the email format for the company from the dictionary
     formats = email_patterns.get(company_name.lower())  # Direct lookup instead of looping
+    # print (company_name.lower())
+    # print (formats)
    
     if not formats:
         return None  # No matching email pattern
@@ -21,9 +23,9 @@ def create_emails2(row, email_patterns):
     try:
 
         email_pattern, domain = formats.split('@', maxsplit=1)  # Extract format and domain
-       # print (f"-----------------------{email_pattern, domain}----------")
+        # print (f"-----------------------{email_pattern, domain}----------")
     except Exception as e:
-           print(f"Error processing file: {str(e)}")
+           print(f"Error processing file: {formats.split('@', maxsplit=1)} ----- {str(e)}")
            return None
 
     # Define patterns for generating emails

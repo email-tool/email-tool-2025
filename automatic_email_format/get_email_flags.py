@@ -39,7 +39,6 @@ def similarity_score(company, domain):
 def get_flags(concatenated_df,col_name):
 
     concatenated_df.columns = concatenated_df.columns.str.lower()  # Convert all column names to lowercase
-    print (concatenated_df.columns)
 
     concatenated_df["company"] = concatenated_df["company"].apply(extract_text)
     df = pd.DataFrame()

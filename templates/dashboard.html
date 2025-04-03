@@ -245,6 +245,7 @@
                 </div>
 
                 <!-- Automatic Email Format Section -->
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
                 <div id="automatic-email" class="section">
                     <div class="section-header">
                         <h3>Automatic Email Format</h3>
@@ -257,6 +258,11 @@
                         <div class="section-buttons">
                             <button type="button" class="btn btn-custom" onclick="createAutomaticEmail()">Create</button>
                             <button type="button" class="btn btn-warning" onclick="resetSection('automatic-email')">Reset</button>
+                            <h3>Logs:</h3>
+                            <pre id="log_output"></pre>  <!-- Log output section -->
+
+
+
                         </div>
                     </form>
                 </div>
@@ -358,6 +364,14 @@
             .then(response => response.json())
             .then(data => updateLog(data))
             .catch(error => console.error('Error:', error));
+
+            var socket = io();
+            function startProcess() {
+                socket.emit("start_process");
+            }
+            socket.on("log_update", function(data) {
+                document.getElementById("log_output").innerText = data.logs;
+            });
         }
 
         function updateLog(data) {

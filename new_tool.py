@@ -14,6 +14,22 @@ from database_training.update_db_manually import update_pickle
 from email_creation.create_emails import email_creator_app
 from database_training.database_process_single_file import process_single_file
 from automatic_email_format import scrapper_run
+from automatic_email_format.scarpper_manager import scrapper_manager 
+from automatic_email_format.get_email_flags import get_flags
+from flask_socketio import SocketIO
+
+socketio = SocketIO(app, cors_allowed_origins="*")
+log_file_path = "log.txt"  # Log file to read
+
+
+import logging
+
+log = logging.getLogger("werkzeug")
+handler = logging.FileHandler("flask_access.log")  # Save logs in this file
+log.addHandler(handler)
+log.setLevel(logging.INFO)  # You can change to ERROR if you only want errors
+
+
 
 '''
 ----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -39,7 +55,6 @@ script_path = os.path.abspath('appy.py')
 user_path = os.path.dirname(script_path)
 print("Base directory:", user_path)
 base_path = user_path+"/files/"
-print("Base directory:", base_path)
 Source_file_path = base_path+'database_source_files'
 Output_files_path = base_path+'database_output_files'
 new_db_pickle_file_path = base_path+'main_database//'+'new_db.pkl'
@@ -124,8 +139,30 @@ def update_file():
         try:
             # data = pd.read_excel(file_path) if file.filename.endswith('.xlsx') else pd.read_csv(file_path)
 
-            updated_dict = update_pickle(new_db_pickle_file_path, file_path)
+            updated_dictd = update_pickle(new_db_pickle_file_path, file_path)
+            from pathlib import Path
+            import csv
+            file_paths = Path(new_db_pickle_file_path)
+            folder_path = file_paths.parent
+            #create csv out of dictionary
+            if isinstance(updated_dictd, dict):
+                # Write to CSV with UTF-8 encoding
+                print (folder_path / "new_database.csv")
+                with open(folder_path / "new_database.csv", "w", newline="", encoding="utf-8") as csv_file:
+                    writer = csv.writer(csv_file)
+                    writer.writerow(["Key", "Value"])  # Header
+                    for key, value in updated_dictd.items():
+                        writer.writerow([key, value])
             updated_dict = update_pickle(old_db_pickle_file_path, file_path)
+        
+            if isinstance(updated_dict, dict):
+                # Write to CSV with UTF-8 encoding
+                print (folder_path / "old_database.csv")
+                with open(folder_path / "old_database.csv", "w", newline="", encoding="utf-8") as csv_file:
+                    writer = csv.writer(csv_file)
+                    writer.writerow(["Key", "Value"])  # Header
+                    for key, value in updated_dict.items():
+                        writer.writerow([key, value])
 
             log_message = "File processed successfully! Rows:, Columns:"
         except Exception as e:
@@ -318,17 +355,80 @@ def automatic_email():
     if file:
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
         file.save(file_path)
-        print (file_path)
-        scrapper_run.app_run(file_path,old_db_pickle_file_path,new_db_pickle_file_path,scrapper_output)
+# scrapper_run.app_run(file_path,old_db_pickle_file_path,new_db_pickle_file_path,scrapper_output)
+        file_name = os.path.splitext(os.path.basename(file_path))[0]
+        output_txt_file = "track_automation//"+file_name + ".txt"
+        output_txt_file = output_txt_file.replace(" ","")
+
+        checkpoint_file = "track_automation//"+file_name+"checkpoint.txt"
+        checkpoint_file = checkpoint_file.replace(" ","")
+
+        # create text file from missing data with conpany name and index
+        df = pd.read_csv(file_path)
+
+        unique_companies = df["Company"].dropna().unique()  # Assuming 'company_name' is the column name
+       
+        # Write unique company names to the output text file with index
+        with open(output_txt_file, "w") as f:
+            for i, company in enumerate(unique_companies, start=0):
+                f.write(f"{i} {company}\n")
+
+        with open(output_txt_file, "r" ) as file:
+            company_list = [line.strip().split(maxsplit=1)[1] for line in file if line.strip()]
 
 
+        # Determine the starting index from the checkpoint file
+        if os.path.exists(checkpoint_file):
 
-        #     log_message = f"File processed successfully! Rows: {file_path}"
-        # except Exception as e:
-        #     log_message = f"Error processing file: {str(e)}"
+            print ("existing file:", checkpoint_file)
 
-        return jsonify({"log": "log_message"})
+            with open(checkpoint_file, "r") as f:
+                last_index, last_file = f.readline().strip().split()
+                last_index = int(last_index)
+        else:
+            last_index = 0
+            with open(checkpoint_file, "w") as f:
+                f.write(f"{last_index} {output_txt_file}\n")
+        
+        # Define batch size
+        BATCH_SIZE  =8500
+        batch_row = 2500
+        batch_sizes = 95
 
+        queries = company_list[last_index:last_index+BATCH_SIZE]
+        # Get the number of full batches
+        num_batches = len(queries) // batch_row  # Number of complete batches
+        remainder = len(queries) % BATCH_SIZE  # Remaining elements in an extra batch (if any)
+        # Iterate over batches
+        start = 0
+        total_rows = 0
+        for batch_idx in range(num_batches + (1 if remainder > 0 else 0)):  # Include remainder batch
+            start_index = batch_idx * batch_row
+            end_index = min(start_index + batch_row, len(queries))  # Avoid exceeding list size
+            batch = queries[start_index:end_index]
+
+            print (f"**************************  Batch:: {start_index}_{end_index}  *********************************")
+
+            # Print batch details
+            namefile = f"{scrapper_output}/Batch{start_index}_{end_index}__3__AprSCRAPPER_"
+            df_raw=0
+            df_raw= scrapper_manager(queries[start_index:end_index],namefile, last_index, output_txt_file,old_db_pickle_file_path,new_db_pickle_file_path,checkpoint_file,batch_sizes) 
+            time.sleep(35)
+            start = start+int(df_raw)
+            total_rows =  batch_row*  (batch_idx+1)
+            socketio.emit("log_update", {"logs": f"Total results: {start}/{total_rows}"})  # Send logs
+
+                # with open(log_file_path, "r") as log_file:
+                #     lines = log_file.readlines()
+                
+                # # Write back to the file (overwrite mode)
+                # with open(log_file_path, "w") as log_file:
+                #     log_file.writelines(lines)
+
+    log_message = f"File processed successfully!"
+    print (log_message)
+         
+    return jsonify({"log": log_message})
 
 
 
