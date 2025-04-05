@@ -20,15 +20,12 @@ from flask_socketio import SocketIO
 
 socketio = SocketIO(app, cors_allowed_origins="*")
 log_file_path = "log.txt"  # Log file to read
-
-
 import logging
 
 log = logging.getLogger("werkzeug")
 handler = logging.FileHandler("flask_access.log")  # Save logs in this file
 log.addHandler(handler)
 log.setLevel(logging.INFO)  # You can change to ERROR if you only want errors
-
 
 
 '''
@@ -50,7 +47,6 @@ import os
 
 # Get the full path of the script
 script_path = os.path.abspath('appy.py')
-
 # Get the directory containing the script
 user_path = os.path.dirname(script_path)
 print("Base directory:", user_path)
@@ -64,6 +60,36 @@ email_created_path = base_path+'created_emails'
 scrapper_output = base_path + 'automatic_emails_format_created'
 missing_data = base_path+'missing_emails'
 verified_path = base_path+'verified_emails'
+
+track_automation = "track_automation"
+
+dirs_to_create = {
+    "source_files": os.path.join(base_path, "database_source_files"),
+    "output_files": os.path.join(base_path, "database_output_files"),
+    "main_db": os.path.join(base_path, "main_database"),
+    "created_emails": os.path.join(base_path, "created_emails"),
+    "scraper_output": os.path.join(base_path, "automatic_emails_format_created"),
+    "missing_data": os.path.join(base_path, "missing_emails"),
+    "verified": os.path.join(base_path, "verified_emails"),
+    "track_automation" : "track_automation"
+}
+
+# Create all directories if they don't exist
+for name, path in dirs_to_create.items():
+    os.makedirs(path, exist_ok=True)
+
+
+# Data to initialize if files are missing
+new_data = {'10th sfg': 'LastName@soc.mil'}
+
+# Helper function to safely create pickle file if it doesn't exist
+def create_pickle_if_missing(file_path, data):
+    if not os.path.exists(file_path):
+        with open(file_path, "wb") as f:
+            pickle.dump(data, f)
+# Check and create both files
+create_pickle_if_missing(new_db_pickle_file_path, new_data)
+create_pickle_if_missing(old_db_pickle_file_path, new_data)
 
 
 @app.route('/upload', methods=['POST'])
@@ -344,8 +370,18 @@ def verify_email():
 import time
 
 
+
+
+
+
 @app.route('/automatic-email', methods=['POST'])
+
 def automatic_email():
+
+
+    # Load the pickle file
+    with open(new_db_pickle_file_path, 'rb') as f:
+        email_patterns = pickle.load(f)
 
 
     file = request.files['file']
@@ -355,7 +391,7 @@ def automatic_email():
     if file:
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
         file.save(file_path)
-# scrapper_run.app_run(file_path,old_db_pickle_file_path,new_db_pickle_file_path,scrapper_output)
+
         file_name = os.path.splitext(os.path.basename(file_path))[0]
         output_txt_file = "track_automation//"+file_name + ".txt"
         output_txt_file = output_txt_file.replace(" ","")
@@ -380,8 +416,6 @@ def automatic_email():
         # Determine the starting index from the checkpoint file
         if os.path.exists(checkpoint_file):
 
-            print ("existing file:", checkpoint_file)
-
             with open(checkpoint_file, "r") as f:
                 last_index, last_file = f.readline().strip().split()
                 last_index = int(last_index)
@@ -391,9 +425,9 @@ def automatic_email():
                 f.write(f"{last_index} {output_txt_file}\n")
         
         # Define batch size
-        BATCH_SIZE  =8500
-        batch_row = 2500
-        batch_sizes = 95
+        BATCH_SIZE  = 10000 # file size
+        batch_row = 2500  # first batch in outer circle 
+        batch_sizes = 89 # batch inside circle
 
         queries = company_list[last_index:last_index+BATCH_SIZE]
         # Get the number of full batches
@@ -407,23 +441,36 @@ def automatic_email():
             end_index = min(start_index + batch_row, len(queries))  # Avoid exceeding list size
             batch = queries[start_index:end_index]
 
-            print (f"**************************  Batch:: {start_index}_{end_index}  *********************************")
+            
+
+            print ("\n", f"**************************  Batch:: {start_index}_{end_index}  *********************************")
+            print (f"starting from {last_index} row")
 
             # Print batch details
-            namefile = f"{scrapper_output}/Batch{start_index}_{end_index}__3__AprSCRAPPER_"
+            namefile = f"{scrapper_output}/Batch_{start_index}_{end_index}_google_"
             df_raw=0
             df_raw= scrapper_manager(queries[start_index:end_index],namefile, last_index, output_txt_file,old_db_pickle_file_path,new_db_pickle_file_path,checkpoint_file,batch_sizes) 
-            time.sleep(35)
+            time.sleep(30)
             start = start+int(df_raw)
             total_rows =  batch_row*  (batch_idx+1)
+            last_index= last_index+BATCH_SIZE
             socketio.emit("log_update", {"logs": f"Total results: {start}/{total_rows}"})  # Send logs
 
-                # with open(log_file_path, "r") as log_file:
-                #     lines = log_file.readlines()
-                
-                # # Write back to the file (overwrite mode)
-                # with open(log_file_path, "w") as log_file:
-                #     log_file.writelines(lines)
+# create emails
+
+            print (f"{total_rows} rows completed")
+
+            df = email_creator_app(file_path,email_patterns)
+            print ("emails created")
+
+            email_data = df[df["Email"].notna() & (df["Email"].str.strip() != "")]
+
+                                # Get file name without extension
+            file_name_no_ext = os.path.splitext(os.path.basename(file_path))[0]
+
+            filename_csv = f"{scrapper_output}//{file_name_no_ext}_generated_emails_output.csv"
+
+            email_data.to_csv(filename_csv)
 
     log_message = f"File processed successfully!"
     print (log_message)
@@ -467,6 +514,8 @@ def split_file():
             log_message = f"Error processing file: {str(e)}"
 
         return jsonify({"log": log_message})
+
+
 
 
 

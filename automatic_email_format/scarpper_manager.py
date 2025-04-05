@@ -170,6 +170,7 @@ def get_email_patterns_only(yesterday_data, name):
 
 def createCSV(data,name):
     # Creating DataFrame
+    total_unique = 0
     records = []
     for entry in data:
         for result in entry['results']:
@@ -184,6 +185,9 @@ def createCSV(data,name):
     df = pd.DataFrame(records)
     df = get_email_patterns_only(df, name)
     df = get_flags(df,'email pattern')
+    counts = df['match'].value_counts()
+    for label, count in counts.items():
+        print(f"{label:<10} {count}")
 
     df = df[df['match'].isin(['High', 'Medium'])]
     if df.shape[0] >0:
@@ -238,10 +242,12 @@ def update_pickle(pickle_file, new_csv_file):
 def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_file_path, new_pickle_file_path,checkpoint_file, batch_size):
 
     log_file="query_logs.txt"
+    total_unique = 0
+    timer = 0
 
     dfss = []
     search_engines = [fetch_google_results, fetch_yahoo_results]  # Alternating search engines\
-    h = ['Google', 'yahoo']
+    h = ['Google', 'Google']
     engine_pt = 0
     num_batches = math.ceil(len(queries) / batch_size)
     all_results = []
@@ -251,13 +257,11 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
     d= datetime.now()
 
     down_duration = timedelta(minutes=20)  # Yahoo stays down for 1 hour
+    print ("Number of batch:", num_batches, " and each batch have ", batch_size, " rows ")
 
-    start_time = time.time()  # Start time for entire execution
-    print ("Number of batch:", num_batches, " and each batch have ", batch_size, " many rows ")
-    print (str(datetime.now())[:10])
 
     for batch_idx in range(num_batches):
-        print ("Batch--------------------------------------", batch_idx)
+        print ("--------------------------Start Batch--------------------------------------", batch_idx)
 
         
         # Start time for this batch
@@ -273,7 +277,7 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
 
             last_index = last_index+1
 
-            print(f"last_index: {last_index}", end="\r")  
+            print(f"last_index:{last_index}", end="\r")  
 
             
             with open(checkpoint_file, "w") as f:
@@ -294,9 +298,15 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
 
                             time.sleep(1)
 
-
                             results = search_engines[engine_pt](q, num_results=10)
-                            log_query_result(log_file, query, results)
+
+                            try:
+                            
+                             l = extract_emails(results[0]['snippet']) 
+                            except:
+                             l   = results 
+                            log_query_result(log_file, query,l)
+
                         except Exception as e:
                             print(f" Failed to fetch results for query '{query}': {e}") 
                             log_query_result(log_file, query, None, error="No results found")
@@ -305,8 +315,17 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
                         all_results.append({'query': company_name, 'engine': h[engine_pt], 'results': results})
                     else:
                         try :
-                            log_query_result(log_file, query, results)
+                    
                             results = search_engines[1-engine_pt](query, num_results=10)
+
+                            
+                            try:
+                            
+                             l = extract_emails(results[0]['snippet']) 
+                            except:
+                             l   = results 
+                            log_query_result(log_file, query,l)
+
                         except:
                             yahoo_downtime = datetime.now()
                             print(f" Failed to fetch results for query '{query}': {e}") 
@@ -327,7 +346,14 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
                             time.sleep(3)
                         
                             results = search_engines[engine_pt](q, num_results=10)
-                            log_query_result(log_file, query, results)
+                            
+                            try:
+                            
+                             l = extract_emails(results[0]['snippet']) 
+                            except:
+                             l   = results 
+                            log_query_result(log_file, query,l)
+
                         except:
                             print(f" Failed to fetch results for query '{query}': {e}") 
                             log_query_result(log_file, query, None, error="No results found")
@@ -338,7 +364,13 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
                     else:
                         try :
                             results = search_engines[1-engine_pt](query, num_results=10)
-                            log_query_result(log_file, query, results)
+                            
+                            try:
+                            
+                             l = extract_emails(results[0]['snippet']) 
+                            except:
+                             l   = results 
+                            log_query_result(log_file, query,l)
                         except:
                             print(f" Failed to fetch results for query '{query}': {e}") 
                             log_query_result(log_file, query, None, error="No results found")
@@ -351,16 +383,22 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
                 print(f"                Failed to fetch results for query '{query}': {e}")  
             time.sleep(random_number)
 
+            timer = timer+1
+
 
         engine_pt = 1- engine_pt  
-     
-        print ("sleeping after batch")
+        
+        
+        
         try:
     
-            df= createCSV(all_results,f"{name_file}_{batch_idx}_{str(datetime.now())[:10]}.csv")
+            df= createCSV(all_results,f"{name_file}_{str(datetime.now())[:10]}.csv")
+            try:
 
-            update_pickle(db_pickle_file_path, f"{name_file}_{batch_idx}_{str(datetime.now())[:10]}.csv")
-            update_pickle(new_pickle_file_path, f"{name_file}_{batch_idx}_{str(datetime.now())[:10]}.csv")
+                update_pickle(db_pickle_file_path, f"{name_file}_{str(datetime.now())[:10]}.csv")
+                update_pickle(new_pickle_file_path, f"{name_file}_{str(datetime.now())[:10]}.csv")
+            except:
+                print ("\n")
 
             # print (f"saved file : {name_file}_{batch_idx}_{str(datetime.now())[:10]}.csv")
             # update_pickle(pickle_file, new_csv_file)
@@ -369,7 +407,7 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
             d = pd.concat(dfss, ignore_index=True)
             unique_companies = d["company"].unique()  # Extract unique company names
             total_unique = unique_companies.shape[0] 
-            print("Total results:", total_unique)  # Print the shape of the unique companies array
+            print(f"Total results:, {total_unique}/{timer}")  # Print the shape of the unique companies array
                         # Save to a text file
             with open("total_count.txt", "w") as f:
                 f.write(f"Total count of unique companies: {total_unique}\n")
@@ -382,10 +420,14 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
             continue
 
         time.sleep(45)
+       
+        print (f"--------------------------End Batch--------------------------------------", batch_idx,"\n")
+        
     try:
         df_combined = pd.concat(dfss, ignore_index=True)
+        df= createCSV(all_results,f"{name_file}_{batch_idx}_{str(datetime.now())[:10]}_final_file.csv")
 
-
+        
         unique_companies = df_combined["company"].unique()  # Extract unique company names
         total_unique = unique_companies.shape[0] 
         # Save to a text file
@@ -396,4 +438,4 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
         print(f"Error: {e}")  # Prints the error message
         print ("")
 
-    return unique_companies.shape[0]
+    return total_unique
