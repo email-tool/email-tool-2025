@@ -168,7 +168,7 @@ def get_email_patterns_only(yesterday_data, name):
     return (filtered_df)
 
 
-def createCSV(data,name):
+def createCSV(data,name,batch):
     # Creating DataFrame
     total_unique = 0
     records = []
@@ -186,9 +186,18 @@ def createCSV(data,name):
     df = get_email_patterns_only(df, name)
     df = get_flags(df,'email pattern')
     counts = df['match'].value_counts()
-    for label, count in counts.items():
-        print(f"{label:<10} {count}")
+    print(counts)
 
+
+    high_count = counts.get('High', 0)
+    medium_count = counts.get('Medium', 0)
+    low_count = counts.get('Low', 0)
+
+    log_file="query_logs.txt"
+
+    k = f"low count {low_count}  High count {high_count} Medium count {medium_count} Total companies {batch} "
+    log_query_result(log_file, query,k)
+    
     df = df[df['match'].isin(['High', 'Medium'])]
     if df.shape[0] >0:
     
@@ -247,7 +256,7 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
 
     dfss = []
     search_engines = [fetch_google_results, fetch_yahoo_results]  # Alternating search engines\
-    h = ['Google', 'Google']
+    h = ['Google', 'yahoo']
     engine_pt = 0
     num_batches = math.ceil(len(queries) / batch_size)
     all_results = []
@@ -392,7 +401,7 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
         
         try:
     
-            df= createCSV(all_results,f"{name_file}_{str(datetime.now())[:10]}.csv")
+            df= createCSV(all_results,f"{name_file}_{str(datetime.now())[:10]}.csv",timer)
             try:
 
                 update_pickle(db_pickle_file_path, f"{name_file}_{str(datetime.now())[:10]}.csv")
@@ -425,7 +434,7 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
         
     try:
         df_combined = pd.concat(dfss, ignore_index=True)
-        df= createCSV(all_results,f"{name_file}_{batch_idx}_{str(datetime.now())[:10]}_final_file.csv")
+        df= createCSV(all_results,f"{name_file}_{batch_idx}_{str(datetime.now())[:10]}_final_file.csv", timer)
 
         
         unique_companies = df_combined["company"].unique()  # Extract unique company names

@@ -98,4 +98,5 @@ def email_creator_app(file,email_patterns):
     # Apply email creation function
    
     processed_data['Email'] = processed_data.apply(lambda row: create_emails2(row, email_patterns), axis=1)
+    print ("email generated")
     return processed_data

@@ -58,7 +58,7 @@ def reader(file_path):
         processed_data.dropna(subset=["Company", "Contact Name", "First Name", "Last Name"], inplace=True)
         
 
-        print("Processed DataFrame:")
+        
         return processed_data
     except ValueError as e:
         print(f"Error: {e}")
