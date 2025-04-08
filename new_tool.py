@@ -368,7 +368,20 @@ def verify_email():
 
 
 import time
+from datetime import datetime, timedelta
 
+def log_query_result(log_file, query, results, error=None):
+    """Logs each query with its results or errors in a persistent text file."""
+    with open(log_file, "a", encoding="utf-8") as f:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        if error:
+            log_entry = f"{timestamp} | QUERY: {query} | ERROR: {error}\n"
+        else:
+            log_entry = f"{timestamp} | QUERY: {query} | RESULTS: {results}\n"
+
+        f.write(log_entry)
+        f.flush()  # Ensure data is written immediately
 
 
 
@@ -425,9 +438,9 @@ def automatic_email():
                 f.write(f"{last_index} {output_txt_file}\n")
         
         # Define batch size
-        BATCH_SIZE  = 10000 # file size
-        batch_row = 2500  # first batch in outer circle 
-        batch_sizes = 89 # batch inside circle
+        BATCH_SIZE  = 20000 # file size
+        batch_row = 10000 # first batch in outer circle 
+        batch_sizes = 98 # batch inside circle
 
         queries = company_list[last_index:last_index+BATCH_SIZE]
         # Get the number of full batches

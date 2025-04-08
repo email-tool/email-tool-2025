@@ -223,7 +223,7 @@ def create_email():
                                         # Get file name without extension
                     file_name_no_ext = os.path.splitext(os.path.basename(i))[0]
 
-                    filename_csv = f"{email_created_path}//{file_name_no_ext}_output.csv"
+                    filename_csv = f"{email_created_path}//{file_name_no_ext}_old_tool_output.csv"
 
                     email_data.to_csv(filename_csv)
                     missing_file_name =   f"{missing_data}//{file_name_no_ext}_missing.csv"
@@ -265,7 +265,7 @@ def create_email():
                                 # Get file name without extension
             file_name_no_ext = os.path.splitext(os.path.basename(file_path))[0]
 
-            filename_csv = f"{email_created_path}//{file_name_no_ext}_output.csv"
+            filename_csv = f"{email_created_path}//{file_name_no_ext}_old_tool_output.csv"
 
             email_data.to_csv(filename_csv)
             missing_file_name =   f"{missing_data}//{file_name_no_ext}_missing.csv"

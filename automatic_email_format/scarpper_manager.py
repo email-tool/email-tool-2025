@@ -194,15 +194,12 @@ def createCSV(data,name,batch):
     low_count = counts.get('Low', 0)
 
     log_file="query_logs.txt"
-
-    k = f"low count {low_count}  High count {high_count} Medium count {medium_count} Total companies {batch} "
-    log_query_result(log_file, query,k)
     
     df = df[df['match'].isin(['High', 'Medium'])]
     if df.shape[0] >0:
     
         df.to_csv(name)
-    return df
+    return df, low_count, high_count, medium_count
 
 def process_csv(filename):
 
@@ -253,10 +250,14 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
     log_file="query_logs.txt"
     total_unique = 0
     timer = 0
+    low_counts =0
+    high_counts =0
+    medium_counts =0
+    
 
     dfss = []
     search_engines = [fetch_google_results, fetch_yahoo_results]  # Alternating search engines\
-    h = ['Google', 'yahoo']
+    h = ['Google', 'Google']  #h = ['Google', 'yahoo']
     engine_pt = 0
     num_batches = math.ceil(len(queries) / batch_size)
     all_results = []
@@ -302,32 +303,31 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
 
                             res = search_engines[engine_pt](query , num_results=5)
                             links = [item['link'] for item in res if item.get('link')]
-
                             q = f"email format for {links[0]}"
-
                             time.sleep(1)
-
                             results = search_engines[engine_pt](q, num_results=10)
-
                             try:
-                            
+    
                              l = extract_emails(results[0]['snippet']) 
                             except:
                              l   = results 
                             log_query_result(log_file, query,l)
 
+
+
                         except Exception as e:
                             print(f" Failed to fetch results for query '{query}': {e}") 
                             log_query_result(log_file, query, None, error="No results found")
                             yahoo_downtime = datetime.now()
-    
+                    
+           
                         all_results.append({'query': company_name, 'engine': h[engine_pt], 'results': results})
+                    
                     else:
                         try :
                     
                             results = search_engines[1-engine_pt](query, num_results=10)
-
-                            
+                     
                             try:
                             
                              l = extract_emails(results[0]['snippet']) 
@@ -336,12 +336,14 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
                             log_query_result(log_file, query,l)
 
                         except:
+                  
                             yahoo_downtime = datetime.now()
                             print(f" Failed to fetch results for query '{query}': {e}") 
                             log_query_result(log_file, query, None, error="No results found")
                         all_results.append({'query': company_name, 'engine': h[1-engine_pt], 'results': results})
 
                 if engine_pt == 1:
+        
 
                     if datetime.now() >= bing_downtime + down_duration:
                         try :
@@ -349,12 +351,15 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
 
                             res = search_engines[engine_pt](query , num_results=5)
                             links = [item['link'] for item in res if item.get('link')]
-
                             q = f"email format for {links[0]}"
-
-                            time.sleep(3)
-                        
+                            time.sleep(1)
                             results = search_engines[engine_pt](q, num_results=10)
+                            try:
+    
+                             l = extract_emails(results[0]['snippet']) 
+                            except:
+                             l   = results 
+                            log_query_result(log_file, query,l)
                             
                             try:
                             
@@ -395,13 +400,21 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
             timer = timer+1
 
 
-        engine_pt = 1- engine_pt  
+        # engine_pt = 1- engine_pt  
         
         
         
         try:
     
-            df= createCSV(all_results,f"{name_file}_{str(datetime.now())[:10]}.csv",timer)
+            df,l, hig, m= createCSV(all_results,f"{name_file}_{str(datetime.now())[:10]}.csv",timer) #low medium high
+            low_counts = low_counts+l
+            high_counts = high_counts+hig
+            medium_counts = medium_counts+m
+
+
+            k = f"low count {low_counts}  High count {high_counts} Medium count {medium_counts} Total companies {timer} "
+            log_query_result(log_file, query,k)
+
             try:
 
                 update_pickle(db_pickle_file_path, f"{name_file}_{str(datetime.now())[:10]}.csv")
@@ -409,8 +422,6 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
             except:
                 print ("\n")
 
-            # print (f"saved file : {name_file}_{batch_idx}_{str(datetime.now())[:10]}.csv")
-            # update_pickle(pickle_file, new_csv_file)
 
             dfss.append(df)  # Append to list
             d = pd.concat(dfss, ignore_index=True)
@@ -428,13 +439,13 @@ def scrapper_manager(queries,name_file, last_index, output_txt_file, db_pickle_f
             print ("")
             continue
 
-        time.sleep(45)
+        time.sleep(65)
        
         print (f"--------------------------End Batch--------------------------------------", batch_idx,"\n")
         
     try:
         df_combined = pd.concat(dfss, ignore_index=True)
-        df= createCSV(all_results,f"{name_file}_{batch_idx}_{str(datetime.now())[:10]}_final_file.csv", timer)
+        df,low_count, high_count, medium_count= createCSV(all_results,f"{name_file}_{batch_idx}_{str(datetime.now())[:10]}_final_file.csv", timer)
 
         
         unique_companies = df_combined["company"].unique()  # Extract unique company names
